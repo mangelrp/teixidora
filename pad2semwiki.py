@@ -18,6 +18,7 @@
 import datetime
 import html
 import re
+import time
 import urllib
 import urllib.parse
 import urllib.request
@@ -86,12 +87,13 @@ def getEtherpadContent(url=''):
             urlhtml = url + '/export/html'
         raw = getURL(url=urlhtml)
         #print(raw)
-        content = raw.split('<body>')[1].split('</body>')[0]
-        content = urllib.parse.unquote(content)
-        content = html.unescape(content)
-        #remove trailing JS code in etherpad-mozilla
-        content = content.replace('<div style="display:none"><a href="/javascript" data-jslicense="1">JavaScript license information</a></div>', '')
-        content = content.strip()
+        if '<body>' in raw and '</body>' in raw:
+            content = raw.split('<body>')[1].split('</body>')[0]
+            content = urllib.parse.unquote(content)
+            content = html.unescape(content)
+            #remove trailing JS code in etherpad-mozilla
+            content = content.replace('<div style="display:none"><a href="/javascript" data-jslicense="1">JavaScript license information</a></div>', '')
+            content = content.strip()
     return content
 
 def getEtherpadAuthors(url=''):
@@ -121,7 +123,7 @@ def getURL(url=''):
     raw = ''
     req = urllib.request.Request(url, headers={ 'User-Agent': 'Mozilla/5.0' })
     try:
-        raw = urllib.request.urlopen(req).read().strip().decode('utf-8')
+        raw = urllib.request.urlopen(req, timeout=15).read().strip().decode('utf-8')
     except:
         sleep = 10 # seconds
         maxsleep = 100
@@ -130,7 +132,7 @@ def getURL(url=''):
             print('Retry in %s seconds...' % (sleep))
             time.sleep(sleep)
             try:
-                raw = urllib.request.urlopen(req).read().strip().decode('utf-8')
+                raw = urllib.request.urlopen(req, timeout=15).read().strip().decode('utf-8')
             except:
                 pass
             sleep = sleep * 2
@@ -269,8 +271,9 @@ def importLabels(padurl='', page='', content=''):
     for line in label2paramspage.text.splitlines():
         if line.strip():
             label2paramslist.append(line)
+    print(label2paramslist)
     label2params = {}
-    for label, param in [x.split('=') for x in label2paramslist]:
+    for label, param in [re.sub(r'=+', '=', x).split('=') for x in label2paramslist]:
         label2params[label.strip()] = param.strip()
     newtext = page.text
     
@@ -412,6 +415,7 @@ def importPadsCheckbox():
                     print('Imported correctly')
                 else:
                     log(log='[[%s|Apunts page]] exists, skiping. [%s Pad] not imported.' % (apuntstitle, padurl))
+                    switchCheckbox(oldvalue='Si', newvalue='Fet', page=page, apuntspage=apuntspage)
             else:
                 print('Not set to import, skiping...')
         #import keywords
